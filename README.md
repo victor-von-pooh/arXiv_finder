@@ -17,6 +17,17 @@ arXiv に投稿された論文の中で,
 source setup.sh
 ```
 
+# 実行方法
+1. `script` ディレクトリに移動する.
+```sh
+cd script
+```
+
+2. `main.py` を実行する.
+```sh
+python3 main.py
+```
+
 ## Commit ルール
 Commit の際は以下のルールに合わせて種類ごとにする.  
 
