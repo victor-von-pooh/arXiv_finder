@@ -37,14 +37,80 @@ def get_latest(
     latest_dd = latest_dl.find_all("dd")
     titles = [
         item.find(
-            "div", class_="list-title mathjax"
+            "div", {"class": "list-title mathjax"}
         ).get_text(strip=True).replace("Title:", "") for item in latest_dd
     ]
 
     return titles, paper_urls
 
 
-def get_abstract(url: str) -> str:
+def get_abstract(soup: BeautifulSoup) -> str:
+    """
+    arXiv の論文の要旨を取得する関数
+
+    Parameters
+    ----------
+    soup: BeautifulSoup
+        スクレイピングしたデータ
+
+    Returns
+    ----------
+    abstract: str
+        論文の要旨
+    """
+    # 要旨を取得
+    contents = soup.find("div", {"id": "content-inner"})
+    abstract = contents.find(
+        "blockquote", {"class": "abstract mathjax"}
+    ).get_text(strip=True).replace("Abstract:", "")
+
+    return abstract
+
+
+def get_label(soup: BeautifulSoup) -> int:
+    """
+    arXiv の論文のラベルを取得する関数
+
+    Parameters
+    ----------
+    soup: BeautifulSoup
+        スクレイピングしたデータ
+
+    Returns
+    ----------
+    label: int
+        論文のラベル
+    """
+    # <tr> タグを取得
+    contents = soup.find("div", {"id": "content-inner"})
+    tables = contents.find("table", {"summary": "Additional metadata"})
+    trs = tables.find_all("tr")
+
+    # ラベルを取得
+    tmp = [0, 0, 0]
+    for tr in trs:
+        # "Subjects" の部分のみ抽出
+        if "Subjects" in tr.find("td", {"class": "tablecell label"}).text:
+            subjects = tr.find("td", {"class": "tablecell subjects"}).text
+
+            # ラベルの付与
+            if "math.OC" in subjects:
+                tmp[0] = 1
+            if "cs.LG" in subjects:
+                tmp[1] = 1
+            if "quant-ph" in subjects:
+                tmp[2] = 1
+
+            # 抽出が終わったらループを抜ける
+            break
+
+    # ラベルを結合
+    label = sum(tmp)
+
+    return label
+
+
+def get_info(url: str) -> tuple[str, int]:
     """
     arXiv の論文の要旨を取得する関数
 
@@ -57,18 +123,20 @@ def get_abstract(url: str) -> str:
     ----------
     abstract: str
         論文の要旨
+    label: int
+        論文のラベル
     """
     # 論文のページを取得
     sub_response = requests.get(url)
     sub_soup = BeautifulSoup(sub_response.text, "html.parser")
 
     # 要旨を取得
-    contents = sub_soup.find("div", {"id": "content-inner"})
-    abstract = contents.find(
-        "blockquote", class_="abstract mathjax"
-    ).get_text(strip=True).replace("Abstract:", "")
+    abstract = get_abstract(sub_soup)
 
-    return abstract
+    # ラベルを取得
+    label = get_label(sub_soup)
+
+    return abstract, label
 
 
 def search_arxiv(mode: str) -> pd.DataFrame:
@@ -100,14 +168,20 @@ def search_arxiv(mode: str) -> pd.DataFrame:
     # 最新の論文情報を取得
     titles, paper_urls = get_latest(soup)
 
-    # 各論文の要旨を取得
-    abstracts = [get_abstract(url) for url in paper_urls]
+    # 各論文の情報を取得
+    abstracts = []
+    labels = []
+    for url in paper_urls:
+        abstract, label = get_info(url)
+        abstracts.append(abstract)
+        labels.append(label)
 
     # DataFrame にまとめる
     df = pd.DataFrame({
         "Title": titles,
         "Abstract": abstracts,
-        "URL": paper_urls
+        "URL": paper_urls,
+        "Label": labels
     })
 
     return df
