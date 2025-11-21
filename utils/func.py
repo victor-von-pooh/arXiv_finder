@@ -5,7 +5,7 @@ import requests
 
 
 def get_latest(
-    soup: BeautifulSoup, base: str = "https://arxiv.org"
+    soup: BeautifulSoup, base: str = "https://export.arxiv.org"
 ) -> tuple[list, list]:
     """
     arXiv から最新の論文を取得する関数
@@ -14,7 +14,7 @@ def get_latest(
     ----------
     soup: BeautifulSoup
         スクレイピングしたデータ
-    base: str="https://arxiv.org"
+    base: str="https://export.arxiv.org"
         arXiv のトップページ
 
     Returns
@@ -155,11 +155,11 @@ def search_arxiv(mode: str) -> pd.DataFrame:
     """
     # arXiv の URL
     if mode == "optimization":
-        url = "https://arxiv.org/list/math.OC/recent?skip=0&show=2000"
+        url = "https://export.arxiv.org/list/math.OC/recent?skip=0&show=2000"
     elif mode == "machine-learning":
-        url = "https://arxiv.org/list/cs.LG/recent?skip=0&show=2000"
+        url = "https://export.arxiv.org/list/cs.LG/recent?skip=0&show=2000"
     elif mode == "quantum":
-        url = "https://arxiv.org/list/quant-ph/recent?skip=0&show=2000"
+        url = "https://export.arxiv.org/list/quant-ph/recent?skip=0&show=2000"
 
     # ページの内容を取得
     response = requests.get(url)
