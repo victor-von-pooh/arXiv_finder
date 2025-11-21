@@ -95,9 +95,9 @@ def get_label(soup: BeautifulSoup) -> int:
 
             # ラベルの付与
             if "math.OC" in subjects:
-                tmp[0] = 1
+                tmp[0] = 4
             if "cs.LG" in subjects:
-                tmp[1] = 1
+                tmp[1] = 2
             if "quant-ph" in subjects:
                 tmp[2] = 1
 
