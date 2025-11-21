@@ -18,9 +18,9 @@ source setup.sh
 ```
 
 # 実行方法
-1. `script` ディレクトリに移動する.
+1. `Collects` ディレクトリに移動する.
 ```sh
-cd script
+cd Collects
 ```
 
 2. `main.py` を実行する.
