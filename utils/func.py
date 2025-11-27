@@ -1,187 +1,145 @@
 # ライブラリのインポート
-from bs4 import BeautifulSoup
+import arxiv
 import pandas as pd
-import requests
 
 
-def get_latest(
-    soup: BeautifulSoup, base: str = "https://export.arxiv.org"
-) -> tuple[list, list]:
+def cats_to_label(categories: list) -> int:
     """
-    arXiv から最新の論文を取得する関数
+    カテゴリーリストをラベルに変換する関数
 
     Parameters
     ----------
-    soup: BeautifulSoup
-        スクレイピングしたデータ
-    base: str="https://export.arxiv.org"
-        arXiv のトップページ
-
-    Returns
-    ----------
-    titles: list
-        取得した論文のタイトルのリスト
-    paper_urls: list
-        取得した論文の URL のリスト
-    """
-    # 最新の日付の <dl> タグを取得
-    latest_dl = soup.find("dl", {"id": "articles"})
-
-    # 最新の日付の <dt> タグを取得
-    latest_dt = latest_dl.find_all("dt")
-    paper_urls = [
-        base + item.find("a", href=True)["href"] for item in latest_dt
-    ]
-
-    # 最新の日付の <dd> タグを取得
-    latest_dd = latest_dl.find_all("dd")
-    titles = [
-        item.find(
-            "div", {"class": "list-title mathjax"}
-        ).get_text(strip=True).replace("Title:", "") for item in latest_dd
-    ]
-
-    return titles, paper_urls
-
-
-def get_abstract(soup: BeautifulSoup) -> str:
-    """
-    arXiv の論文の要旨を取得する関数
-
-    Parameters
-    ----------
-    soup: BeautifulSoup
-        スクレイピングしたデータ
-
-    Returns
-    ----------
-    abstract: str
-        論文の要旨
-    """
-    # 要旨を取得
-    contents = soup.find("div", {"id": "content-inner"})
-    abstract = contents.find(
-        "blockquote", {"class": "abstract mathjax"}
-    ).get_text(strip=True).replace("Abstract:", "")
-
-    return abstract
-
-
-def get_label(soup: BeautifulSoup) -> int:
-    """
-    arXiv の論文のラベルを取得する関数
-
-    Parameters
-    ----------
-    soup: BeautifulSoup
-        スクレイピングしたデータ
+    categories: list
+        カテゴリーのリスト
 
     Returns
     ----------
     label: int
-        論文のラベル
+        ラベル化されたカテゴリー
     """
-    # <tr> タグを取得
-    contents = soup.find("div", {"id": "content-inner"})
-    tables = contents.find("table", {"summary": "Additional metadata"})
-    trs = tables.find_all("tr")
+    # ラベルの初期化
+    label = 0
 
-    # ラベルを取得
-    tmp = [0, 0, 0]
-    for tr in trs:
-        # "Subjects" の部分のみ抽出
-        if "Subjects" in tr.find("td", {"class": "tablecell label"}).text:
-            subjects = tr.find("td", {"class": "tablecell subjects"}).text
+    # 最適化系の論文は4
+    if "math.OC" in categories:
+        label += 4
 
-            # ラベルの付与
-            if "math.OC" in subjects:
-                tmp[0] = 4
-            if "cs.LG" in subjects:
-                tmp[1] = 2
-            if "quant-ph" in subjects:
-                tmp[2] = 1
+    # 機械学習系の論文は2
+    if "cs.LG" in categories:
+        label += 2
 
-            # 抽出が終わったらループを抜ける
-            break
-
-    # ラベルを結合
-    label = sum(tmp)
+    # 量子コンピュータ系の論文は1
+    if "quant-ph" in categories:
+        label += 1
 
     return label
 
 
-def get_info(url: str) -> tuple[str, int]:
+def get_results(query: str, max_results: int = 500) -> list:
     """
-    arXiv の論文の要旨を取得する関数
+    クエリに基づいて arXiv から論文を検索し, 結果を返す関数
 
     Parameters
     ----------
-    url: str
-        論文のページ
+    query: str
+        検索クエリ
+    max_results: int = 500
+        最大取得件数
 
     Returns
     ----------
-    abstract: str
-        論文の要旨
-    label: int
-        論文のラベル
+    results: list
+        検索結果のリスト
     """
-    # 論文のページを取得
-    sub_response = requests.get(url)
-    sub_soup = BeautifulSoup(sub_response.text, "html.parser")
+    # Client オブジェクトの作成
+    client = arxiv.Client()
 
-    # 要旨を取得
-    abstract = get_abstract(sub_soup)
+    # 検索クエリの作成
+    search = arxiv.Search(
+        query=query, max_results=max_results,
+        sort_by=arxiv.SortCriterion.SubmittedDate
+    )
 
-    # ラベルを取得
-    label = get_label(sub_soup)
+    # 検索の実行
+    results = []
+    for result in client.results(search):
+        # タイトルを取得
+        title = result.title
 
-    return abstract, label
+        # 要旨を取得
+        summary = result.summary.replace("\n  ", " ").replace("\n  ", "  ")
+
+        # 論文のURLを取得
+        url = result.entry_id
+
+        # カテゴリーを取得
+        categories = result.categories
+        label = cats_to_label(categories)
+
+        # 結果を辞書形式で保存
+        paper_info = {
+            "Title": title,
+            "Abstract": summary,
+            "URL": url,
+            "Label": label
+        }
+        results.append(paper_info)
+
+    return results
 
 
-def search_arxiv(mode: str) -> pd.DataFrame:
+def make_query(cat: str, date: str) -> str:
     """
-    arXiv から最新の論文情報を取得し、DataFrame にまとめる関数
+    カテゴリーと日付を入れて検索クエリを作成する関数
 
     Parameters
     ----------
-    mode: str
-        最適化または機械学習または量子の分野
+    cat: str
+        カテゴリー
+    date: str
+        日付
+
+    Returns
+    ----------
+    query: str
+        作成された検索クエリ
+    """
+    # クエリの作成
+    start = date + "0000"
+    end = date + "2359"
+    query = f"cat:{cat} AND submittedDate:[{start} TO {end}]"
+
+    return query
+
+
+def make_daily_df(date: str) -> pd.DataFrame:
+    """
+    日毎の論文情報をデータフレームにまとめる関数
+
+    Parameters
+    ----------
+    date: str
+        日付
 
     Returns
     ----------
     df: pd.DataFrame
-        最新の論文情報をまとめた DataFrame
+        当日の論文情報をまとめたデータフレーム
     """
-    # arXiv の URL
-    if mode == "optimization":
-        url = "https://export.arxiv.org/list/math.OC/recent?skip=0&show=2000"
-    elif mode == "machine-learning":
-        url = "https://export.arxiv.org/list/cs.LG/recent?skip=0&show=2000"
-    elif mode == "quantum":
-        url = "https://export.arxiv.org/list/quant-ph/recent?skip=0&show=2000"
+    # 検索カテゴリーのリスト
+    categories = ["math.OC", "cs.LG", "quant-ph"]
 
-    # ページの内容を取得
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
+    # 論文情報のリスト
+    papers = []
 
-    # 最新の論文情報を取得
-    titles, paper_urls = get_latest(soup)
+    # 各カテゴリーごとに論文を取得
+    for cat in categories:
+        query = make_query(cat, date)
+        results = get_results(query)
+        papers.extend(results)
 
-    # 各論文の情報を取得
-    abstracts = []
-    labels = []
-    for url in paper_urls:
-        abstract, label = get_info(url)
-        abstracts.append(abstract)
-        labels.append(label)
-
-    # DataFrame にまとめる
-    df = pd.DataFrame({
-        "Title": titles,
-        "Abstract": abstracts,
-        "URL": paper_urls,
-        "Label": labels
-    })
+    # データフレームの作成
+    df = pd.DataFrame(papers)
+    df = df.drop_duplicates(subset=["Title"]).reset_index(drop=True)
 
     return df
