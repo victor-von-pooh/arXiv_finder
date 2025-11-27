@@ -1,0 +1,20 @@
+{
+    "start": {
+        "year": 2025,
+        "month": 1,
+        "day": 1
+    },
+    "end": {
+        "year": 2025,
+        "month": 12,
+        "day": 31
+    },
+    "keywords": [
+        "quantum machine learning", "Quantum Machine Learning", "QML",
+        "quantum neural network", "Quantum Neural Network", "QNN",
+        "quantum reservoir computing", "Quantum Reservoir Computing",
+        "QAOA", "Reinforcement Learning", "reinforcement learning",
+        "Graph Neural Network", "graph neural network", "GNN",
+        "Point Cloud", "point cloud"
+    ]
+}
