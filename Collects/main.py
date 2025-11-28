@@ -8,7 +8,7 @@ from tqdm import tqdm
 from utils.func import make_daily_df
 
 # Config ファイルを読み込む
-cfg_path = "config/config.json"
+cfg_path = "config/main.json"
 with open(cfg_path, "r") as f:
     cfg = json.load(f)
 
